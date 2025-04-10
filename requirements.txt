@@ -1,0 +1,8 @@
+yaml
+pyyaml
+pillow
+torchvision
+numpy
+flask
+fpdf2
+werkzeug
