@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload X-Ray Images</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='upload_style.css') }}">
+</head>
+<body>
+<header>
+    <div class="logo">
+        <i class="fas fa-lungs"></i>
+        <h1>LungScan AI</h1>
+    </div>
+    <nav>
+        <a href="{{ url_for('index') }}" class="back-button">
+            <i class="fas fa-arrow-left"></i> Back to Home
+        </a>
+    </nav>
+</header>
+<main class="upload-container">
+    <div class="upload-card">
+        <h2><i class="fas fa-cloud-upload-alt"></i> Upload X-Ray Images</h2>
+        <form method="post" enctype="multipart/form-data" class="upload-form">
+            <div class="file-upload-area" id="dropArea">
+                <i class="fas fa-file-medical"></i>
+                <p>Drag & drop your chest X-ray images here or</p>
+                <label for="fileInput" class="file-label">
+                    <span>Browse Files</span>
+                    <input type="file" id="fileInput" name="file" multiple accept=".jpeg,.jpg,.png">
+                </label>
+                <p class="file-requirements">Supports: JPEG, JPG, PNG</p>
+            </div>
+            <div id="imagePreviewContainer" class="image-preview-container" style="display: none;">
+                <h3>Selected Images Preview</h3>
+                <div id="previewArea" class="preview-area">
+                    <!-- Images will be added here dynamically -->
+                </div>
+            </div>
+            <button type="submit" class="submit-button">
+                <i class="fas fa-search"></i> Analyze Images
+            </button>
+        </form>
+        {% if error_message %}
+        <div class="error-message">
+            <i class="fas fa-exclamation-circle"></i> {{ error_message }}
+        </div>
+        {% endif %}
+    </div>
+    {% if files_info %}
+    <div class="results-section">
+        <h3><i class="fas fa-clipboard-list"></i> Analysis Results</h3>
+        <div class="results-actions">
+            <form method="post" action="/generate_pdf" class="pdf-form">
+                <input type="hidden" name="files_info" value='{{ files_info | tojson }}'>
+                <button type="submit" class="pdf-button">
+                    <i class="fas fa-file-pdf"></i> Generate PDF Report
+                </button>
+            </form>
+        </div>
+        <div class="results-grid">
+            {% for file_info in files_info %}
+            <div class="result-card">
+                <div class="image-comparison">
+                    <div class="image-container">
+                        <h4>Original <span class="image-number-label">Image {{ loop.index }}</span></h4>
+                        <img src="{{ url_for('static', filename='uploads/' + file_info['upload_subfolder'] + '/' + file_info['original_image']) }}"
+                             alt="Original X-Ray" class="xray-image">
+                    </div>
+                    <div class="image-container">
+                        <h4>AI Analysis <span class="image-number-label">Image {{ loop.index }}</span></h4>
+                        <img src="{{ url_for('static', filename='uploads/' + file_info['upload_subfolder'] + '/' + file_info['gradcam_image']) }}"
+                             alt="Grad-CAM Analysis" class="xray-image">
+                    </div>
+                </div>
+                <div class="diagnosis">
+                    <h4>Diagnosis</h4>
+                    <div class="diagnosis-badge {{ 'normal' if file_info['prediction'] == 'No Finding' else 'abnormal' }}">
+                        {{ file_info['prediction'] }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</main>
+<script>
+    // Drag and drop functionality
+    const dropArea = document.getElementById('dropArea');
+    const fileInput = document.getElementById('fileInput');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const previewArea = document.getElementById('previewArea');
+
+    // Prevent default behaviors for drag events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Add highlight class when dragging over the area
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+    });
+
+    // Remove highlight class when leaving or after drop
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+        dropArea.classList.add('highlight');
+    }
+
+    function unhighlight() {
+        dropArea.classList.remove('highlight');
+    }
+
+    // Handle dropped files
+    dropArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        fileInput.files = dt.files;
+        // Preview all dropped images
+        if (dt.files.length > 0) {
+            previewImages(dt.files);
+        }
+    }
+
+    // Image preview functionality
+    fileInput.addEventListener('change', function () {
+        if (this.files && this.files.length > 0) {
+            previewImages(this.files);
+        }
+    });
+
+    function previewImages(files) {
+        // Clear previous previews
+        previewArea.innerHTML = '';
+
+        if (files.length > 0) {
+            imagePreviewContainer.style.display = 'block';
+
+            // Create previews for each file
+            Array.from(files).forEach((file, index) => {
+                if (!file.type.match('image.*')) {
+                    return;
+                }
+
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'preview-image-container';
+
+                    // Add image number label
+                    const imageLabel = document.createElement('div');
+                    imageLabel.className = 'image-number-label';
+                    imageLabel.textContent = `Image ${index + 1}`;
+
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'preview-image';
+                    img.alt = `Preview of ${file.name}`;
+
+                    const imgName = document.createElement('p');
+                    imgName.textContent = file.name;
+                    imgName.className = 'preview-image-name';
+
+                    imgContainer.appendChild(imageLabel);
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(imgName);
+                    previewArea.appendChild(imgContainer);
+                };
+
+                reader.readAsDataURL(file);
+            });
+        } else {
+            imagePreviewContainer.style.display = 'none';
+        }
+    }
+
+    // Make the entire drop area clickable to open file dialog
+    dropArea.addEventListener('click', function (e) {
+        // Only trigger click on the drop area itself, not on its children
+        if (e.target === dropArea || e.target.classList.contains('file-label')) {
+            fileInput.click();
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+dataset:
+  img_size: [ 224,224 ]
+  mean: [ 0.485, 0.456, 0.406 ]
+  std: [ 0.229, 0.224, 0.225 ]
+
+testing:
+  gpu_id: 0
+  num_workers: 0
+
+model:
+  exp_folder: "artifacts/"
+  model_name: "final_chestxray_model.pth"
+  num_class: 15
