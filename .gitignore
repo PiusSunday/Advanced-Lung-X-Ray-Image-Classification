@@ -172,3 +172,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+*.DS_Store
+*.idea/
+
+
+/artifacts/final_chestxray_model.pth
+/notebooks/NIH_Chest_Xray_model_training_full_dataset.ipynb
